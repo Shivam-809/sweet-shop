@@ -1,25 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FloatingCandies } from "@/components/FloatingCandies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { clearUser } from "@/lib/store";
-import { Suspense } from "react";
+import { saveUser } from "@/lib/store";
 
-function ResetPasswordForm() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsReady(true);
+      } else {
+        setError("Invalid or expired reset link. Please request a new one.");
+        setIsReady(true);
+      }
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +51,7 @@ function ResetPasswordForm() {
 
     try {
       const supabase = createClient();
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
 
@@ -50,20 +61,37 @@ function ResetPasswordForm() {
         return;
       }
 
-      clearUser();
-      await supabase.auth.signOut();
+      if (data.user) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          const user = {
+            id: data.user.id,
+            email: data.user.email || "",
+            name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || "User",
+          };
+          saveUser(user, sessionData.session.access_token);
+        }
+      }
 
       setSuccess(true);
       setLoading(false);
       
       setTimeout(() => {
-        router.push("/login");
-      }, 2000);
+        window.location.href = "/dashboard";
+      }, 1500);
     } catch {
       setError("Something went wrong");
       setLoading(false);
     }
   };
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-amber-50 flex items-center justify-center">
+        <div className="text-4xl animate-bounce">🍭</div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -75,11 +103,28 @@ function ResetPasswordForm() {
               <div className="text-4xl mb-4">✅</div>
               <h3 className="font-semibold text-purple-800 mb-2">Password reset successfully!</h3>
               <p className="text-purple-600 text-sm mb-4">
-                Redirecting you to login page...
+                Redirecting you to dashboard...
               </p>
-              <Link href="/login">
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error && !password && !confirmPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-amber-50 flex items-center justify-center p-4 relative overflow-hidden">
+        <FloatingCandies />
+        <Card className="w-full max-w-md relative z-10 border-pink-200 shadow-xl">
+          <CardContent className="pt-6">
+            <div className="text-center py-4">
+              <div className="text-4xl mb-4">⚠️</div>
+              <h3 className="font-semibold text-purple-800 mb-2">Link Expired</h3>
+              <p className="text-purple-600 text-sm mb-4">{error}</p>
+              <Link href="/forgot-password">
                 <Button className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white">
-                  Go to Login
+                  Request New Link
                 </Button>
               </Link>
             </div>
@@ -155,13 +200,5 @@ function ResetPasswordForm() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ResetPasswordForm />
-    </Suspense>
   );
 }

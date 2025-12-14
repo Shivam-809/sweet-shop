@@ -19,12 +19,14 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session?.user) {
         setIsReady(true);
+        setUserEmail(session.user.email || "");
       } else {
         setError("Invalid or expired reset link. Please request a new one.");
         setIsReady(true);
@@ -61,24 +63,28 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      if (data.user) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          const user = {
-            id: data.user.id,
-            email: data.user.email || "",
-            name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || "User",
-          };
-          saveUser(user, sessionData.session.access_token);
+      if (data.user && userEmail) {
+        const loginRes = await fetch("/api/auth/user/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: userEmail, password }),
+        });
+
+        const loginData = await loginRes.json();
+
+        if (loginRes.ok) {
+          saveUser(loginData.user, loginData.token);
+          setSuccess(true);
+          setLoading(false);
+          
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 1500);
+        } else {
+          setError("Password reset successful, but login failed. Please login manually.");
+          setLoading(false);
         }
       }
-
-      setSuccess(true);
-      setLoading(false);
-      
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1500);
     } catch {
       setError("Something went wrong");
       setLoading(false);

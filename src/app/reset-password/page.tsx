@@ -63,28 +63,13 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const updateRes = await fetch("/api/auth/user/update-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: userEmail, password: password }),
-      });
-
-      if (!updateRes.ok) {
-        setError("Password reset successful but update failed. Please try logging in manually.");
-        setLoading(false);
-        return;
-      }
-
-      const { user, token } = await updateRes.json();
-      saveUser(user, token);
-
       setSuccess(true);
       setLoading(false);
       
+      await supabase.auth.signOut();
+      
       setTimeout(() => {
-        window.location.href = "/dashboard";
+        window.location.href = "/login";
       }, 1500);
     } catch {
       setError("Something went wrong");

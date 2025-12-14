@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { verifyToken } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createAdminClient();
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const payload = verifyToken(token);
-
-    if (!payload || payload.type !== "user") {
+    const supabase = await createClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
       return NextResponse.json({ error: "User access required" }, { status: 403 });
     }
 
@@ -48,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { data: purchase, error: purchaseError } = await supabase
       .from("purchases")
       .insert({
-        user_id: payload.id,
+        user_id: user.id,
         sweet_id: id,
         quantity,
         total_price: totalPrice,

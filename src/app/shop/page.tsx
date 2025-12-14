@@ -59,8 +59,8 @@ function ShopContent() {
   }, [categoryParam]);
 
   const handlePurchase = async (sweetId: string) => {
-    const { token } = getUser();
-    if (!token) {
+    const { user } = getUser();
+    if (!user) {
       router.push("/login");
       return;
     }
@@ -71,7 +71,6 @@ function ShopContent() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ quantity: 1 }),
       });

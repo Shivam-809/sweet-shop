@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
 
     try {
       const supabase = createClient();
-      const { data, error: updateError } = await supabase.auth.updateUser({
+      const { error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
 
@@ -63,28 +63,29 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      if (data.user && userEmail) {
-        const loginRes = await fetch("/api/auth/user/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: userEmail, password }),
-        });
+      const updateRes = await fetch("/api/auth/user/update-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, password: password }),
+      });
 
-        const loginData = await loginRes.json();
-
-        if (loginRes.ok) {
-          saveUser(loginData.user, loginData.token);
-          setSuccess(true);
-          setLoading(false);
-          
-          setTimeout(() => {
-            window.location.href = "/dashboard";
-          }, 1500);
-        } else {
-          setError("Password reset successful, but login failed. Please login manually.");
-          setLoading(false);
-        }
+      if (!updateRes.ok) {
+        setError("Password reset successful but update failed. Please try logging in manually.");
+        setLoading(false);
+        return;
       }
+
+      const { user, token } = await updateRes.json();
+      saveUser(user, token);
+
+      setSuccess(true);
+      setLoading(false);
+      
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
     } catch {
       setError("Something went wrong");
       setLoading(false);

@@ -1,37 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { verifyPassword, generateToken } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createAdminClient();
+    const supabase = await createClient();
     const { email, password } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    const { data: user, error } = await supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    if (!data.user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    const { data: userData } = await supabase
       .from("users")
       .select("*")
-      .eq("email", email)
+      .eq("id", data.user.id)
       .single();
 
-    if (error || !user) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-
-    const isValid = await verifyPassword(password, user.password_hash);
-
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-
-    const token = generateToken({ id: user.id, email: user.email, type: "user" });
-
-    const { password_hash: _, ...userWithoutPassword } = user;
-
-    return NextResponse.json({ user: userWithoutPassword, token, type: "user" });
+    return NextResponse.json({ 
+      user: userData || {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata?.name || data.user.email?.split('@')[0]
+      },
+      session: data.session,
+      type: "user" 
+    });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

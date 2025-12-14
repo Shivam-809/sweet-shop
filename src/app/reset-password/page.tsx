@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
               <div className="text-4xl mb-4">✅</div>
               <h3 className="font-semibold text-purple-800 mb-2">Password reset successfully!</h3>
               <p className="text-purple-600 text-sm mb-4">
-                Redirecting you to dashboard...
+                Redirecting you to login...
               </p>
             </div>
           </CardContent>

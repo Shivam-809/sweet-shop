@@ -16,15 +16,13 @@ export default function PurchasesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { token } = getUser();
-    if (!token) {
+    const { user } = getUser();
+    if (!user) {
       router.push("/login");
       return;
     }
 
-    fetch("/api/purchases", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch("/api/purchases")
       .then((res) => res.json())
       .then((data) => {
         setPurchases(data.purchases || []);

@@ -36,7 +36,7 @@ export default function LoginPage() {
         return;
       }
 
-      saveUser(data.user, data.token);
+      saveUser(data.user, data.session?.access_token || "");
       window.location.href = "/dashboard";
     } catch {
       setError("Something went wrong");

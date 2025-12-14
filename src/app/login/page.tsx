@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FloatingCandies } from "@/components/FloatingCandies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,6 @@ import { createClient } from "@/lib/supabase/client";
 import { saveUser } from "@/lib/store";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,6 +30,7 @@ export default function LoginPage() {
 
       if (signInError) {
         setError(signInError.message);
+        setLoading(false);
         return;
       }
 
@@ -44,12 +43,10 @@ export default function LoginPage() {
         
         saveUser(user, data.session.access_token);
         
-        router.push("/dashboard");
-        router.refresh();
+        window.location.href = "/dashboard";
       }
     } catch {
       setError("Something went wrong");
-    } finally {
       setLoading(false);
     }
   };

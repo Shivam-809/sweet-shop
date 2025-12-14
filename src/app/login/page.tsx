@@ -22,29 +22,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch("/api/auth/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (signInError) {
-        setError(signInError.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Login failed");
         setLoading(false);
         return;
       }
 
-      if (data.user && data.session) {
-        const user = {
-          id: data.user.id,
-          email: data.user.email || "",
-          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || "User",
-        };
-        
-        saveUser(user, data.session.access_token);
-        
-        window.location.href = "/dashboard";
-      }
+      saveUser(data.user, data.token);
+      window.location.href = "/dashboard";
     } catch {
       setError("Something went wrong");
       setLoading(false);

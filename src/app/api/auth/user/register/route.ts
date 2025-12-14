@@ -1,41 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { hashPassword, generateToken } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createAdminClient();
+    const supabase = await createClient();
     const { email, password, name } = await request.json();
 
     if (!email || !password || !name) {
       return NextResponse.json({ error: "Email, password, and name are required" }, { status: 400 });
     }
 
-    const { data: existingUser } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .single();
-
-    if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 409 });
+    if (password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const passwordHash = await hashPassword(password);
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    const { data: user, error } = await supabase
-      .from("users")
-      .insert({ email, password_hash: passwordHash, name })
-      .select("id, email, name, created_at, updated_at")
-      .single();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+        },
+        emailRedirectTo: `${redirectUrl}/auth/confirm`,
+      },
+    });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    const token = generateToken({ id: user.id, email: user.email, type: "user" });
+    if (data.user) {
+      const { error: dbError } = await supabase
+        .from("users")
+        .upsert({
+          id: data.user.id,
+          email: data.user.email,
+          name,
+        }, {
+          onConflict: 'id'
+        });
 
-    return NextResponse.json({ user, token, type: "user" }, { status: 201 });
+      if (dbError) {
+        console.error("Error creating user in database:", dbError);
+      }
+    }
+
+    return NextResponse.json({ 
+      message: "Registration successful! Please check your email to confirm your account.",
+      emailSent: true,
+      user: data.user 
+    }, { status: 201 });
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
